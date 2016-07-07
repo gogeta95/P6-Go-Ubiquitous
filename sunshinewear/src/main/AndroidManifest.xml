@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="saurabh.com.sunshinewear">
+          package="com.example.android.sunshine.app">
 
     <uses-feature android:name="android.hardware.type.watch"/>
 
@@ -37,6 +37,16 @@
         <meta-data
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version"/>
+        <service android:name=".WeatherListenerService">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED"/>
+                <data
+                    android:host="*"
+                    android:path="/weather"
+                    android:scheme="wear"/>
+            </intent-filter>
+        </service>
     </application>
+
 
 </manifest>
