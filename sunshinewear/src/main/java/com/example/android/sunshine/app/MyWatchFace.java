@@ -26,12 +26,13 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
@@ -52,6 +53,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
             Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD);
     private static final Typeface LIGHT_TYPEFACE =
             Typeface.create("sans-serif-light", Typeface.NORMAL);
+
 
     /**
      * Update rate in milliseconds for interactive mode. We update once a second since seconds are
@@ -91,6 +93,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
 
     private class Engine extends CanvasWatchFaceService.Engine {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
+        private final String TAG = Engine.class.getSimpleName();
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
         Paint mHourPaint;
@@ -117,7 +120,14 @@ public class MyWatchFace extends CanvasWatchFaceService {
         @Override
         public void onCreate(SurfaceHolder holder) {
             super.onCreate(holder);
-
+            BroadcastReceiver receiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    Log.d(TAG, "onReceive: " + intent.getExtras());
+                }
+            };
+            IntentFilter intentFilter = new IntentFilter(WeatherListenerService.ACTION_DATA);
+            LocalBroadcastManager.getInstance(MyWatchFace.this).registerReceiver(receiver, intentFilter);
             setWatchFaceStyle(new WatchFaceStyle.Builder(MyWatchFace.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
@@ -319,23 +329,6 @@ public class MyWatchFace extends CanvasWatchFaceService {
                 mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs);
             }
         }
-
-        class FetchWeatherTask extends AsyncTask<Void, Void, Integer> {
-            @Override
-            protected void onPreExecute() {
-                super.onPreExecute();
-            }
-
-            @Override
-            protected Integer doInBackground(Void... params) {
-
-                return null;
-            }
-
-            @Override
-            protected void onPostExecute(Integer integer) {
-                super.onPostExecute(integer);
-            }
-        }
     }
+
 }

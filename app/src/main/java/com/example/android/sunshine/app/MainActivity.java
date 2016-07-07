@@ -67,7 +67,6 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
     }
 
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -232,8 +231,12 @@ public class MainActivity extends AppCompatActivity implements ForecastFragment.
     public void onConnected(@Nullable Bundle bundle) {
         Log.d(TAG, "onConnected: " + bundle);
         PutDataMapRequest putDataMapReq = PutDataMapRequest.create("/weather");
-        putDataMapReq.getDataMap().putInt("MIN", new Random().nextInt(100));
-        putDataMapReq.getDataMap().putInt("MAX", new Random().nextInt(100));
+        int min = new Random().nextInt(100);
+        int max = new Random().nextInt(100);
+        Log.d(TAG, "onConnected: MIN: " + min);
+        Log.d(TAG, "onConnected: MAX: " + max);
+        putDataMapReq.getDataMap().putInt("MIN", min);
+        putDataMapReq.getDataMap().putInt("MAX", max);
         putDataMapReq.setUrgent();
         PutDataRequest putDataReq = putDataMapReq.asPutDataRequest();
         PendingResult<DataApi.DataItemResult> pendingResult =
