@@ -50,3 +50,14 @@ WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
 License for the specific language governing permissions and limitations under
 the License.
 
+#Added WatchFace as a part of android nanodegree.
+
+##How to setup?
+
+1. create file `local.properties` at the root of thr project and add API key as
+```
+API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+###Why watchface is not showing weather info?
+Weather will appear on watchface after sunshine app is opened on connected device.
