@@ -412,6 +412,7 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
             Log.d(LOG_TAG, "onConnected: MAX: " + max);
             putDataMapReq.getDataMap().putInt("MIN", min);
             putDataMapReq.getDataMap().putInt("MAX", max);
+            putDataMapReq.getDataMap().putLong("time", SystemClock.currentThreadTimeMillis());
             putDataMapReq.setUrgent();
             PutDataRequest putDataReq = putDataMapReq.asPutDataRequest();
             PendingResult<DataApi.DataItemResult> pendingResult =
