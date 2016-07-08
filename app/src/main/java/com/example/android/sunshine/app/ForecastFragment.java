@@ -435,7 +435,8 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     }
 
     private void sendWeatherAssetToWearable(Bitmap bitmap) {
-        Asset asset = createAssetFromBitmap(bitmap);
+        Bitmap newBitmap = Bitmap.createScaledBitmap(bitmap, 100, 100, false);
+        Asset asset = createAssetFromBitmap(newBitmap);
         PutDataMapRequest dataMap = PutDataMapRequest.create("/image");
         dataMap.getDataMap().putAsset("weatherImage", asset);
         dataMap.getDataMap().putLong("time", SystemClock.currentThreadTimeMillis());

@@ -16,6 +16,9 @@ import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 import com.google.android.gms.wearable.WearableListenerService;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -25,7 +28,8 @@ import java.util.concurrent.TimeUnit;
  */
 
 public class WeatherListenerService extends WearableListenerService {
-    public static final String ACTION_DATA = "ACTiondata";
+    public static final String ACTION_DATA = "ActionData";
+    public static final String ACTION_IMAGE = "ActionImage";
     public static final String DATA_ITEM_RECEIVED_PATH = "WEATHER";
     private static final String TAG = WeatherListenerService.class.getSimpleName();
 
@@ -90,6 +94,22 @@ public class WeatherListenerService extends WearableListenerService {
                 Asset profileAsset = dataMapItem.getDataMap().getAsset("weatherImage");
                 Log.d(TAG, "onDataChanged: received image");
                 Bitmap bitmap = loadBitmapFromAsset(profileAsset, googleApiClient);
+                if (bitmap != null) {
+                    File cacheDir = getCacheDir();
+                    File f = new File(cacheDir, "image.jpg");
+                    FileOutputStream fos;
+                    try {
+                        fos = new FileOutputStream(f);
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                        fos.flush();
+                        fos.close();
+                        Intent intent = new Intent(ACTION_IMAGE);
+                        LocalBroadcastManager.getInstance(WeatherListenerService.this).sendBroadcast(intent);
+                        Log.d(TAG, "onDataChanged: Image Saved to cache!");
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
 
         }

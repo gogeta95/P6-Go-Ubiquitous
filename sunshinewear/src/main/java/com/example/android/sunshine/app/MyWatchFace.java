@@ -20,7 +20,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -29,13 +32,16 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
-import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.lang.ref.WeakReference;
 import java.util.Calendar;
 import java.util.Locale;
@@ -110,24 +116,70 @@ public class MyWatchFace extends CanvasWatchFaceService {
         };
         float mXOffset;
         float mYOffset;
+        int min;
+        int max;
+        Rect rect = new Rect();
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
          * disable anti-aliasing in ambient mode.
          */
         boolean mLowBitAmbient;
+        BroadcastReceiver tempReceiver;
+        BroadcastReceiver imageReceiver;
+        Bitmap bitmap;
+        Bitmap ambientBitmap;
+
+        private void loadBitmap() {
+            File cacheDir = getBaseContext().getCacheDir();
+            File f = new File(cacheDir, "image.jpg");
+            FileInputStream fis;
+            try {
+                fis = new FileInputStream(f);
+                bitmap = BitmapFactory.decodeStream(fis);
+                ambientBitmap = Utils.toGrayscale(bitmap);
+                invalidate();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private void setTemp(int min, int max) {
+            PreferenceManager.getDefaultSharedPreferences(MyWatchFace.this).edit()
+                    .putInt("MIN", min)
+                    .putInt("MAX", max)
+                    .apply();
+        }
+
+        private void loadTemp() {
+            SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(MyWatchFace.this);
+            min = preferences.getInt("MIN", -273);
+            max = preferences.getInt("MAX", 1000);
+        }
 
         @Override
         public void onCreate(SurfaceHolder holder) {
             super.onCreate(holder);
-            BroadcastReceiver receiver = new BroadcastReceiver() {
+            tempReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    Log.d(TAG, "onReceive: " + intent.getExtras());
+                    min = intent.getIntExtra("MIN", -273);
+                    max = intent.getIntExtra("MAX", 1000);
+                    setTemp(min, max);
+                    invalidate();
                 }
             };
-            IntentFilter intentFilter = new IntentFilter(WeatherListenerService.ACTION_DATA);
-            LocalBroadcastManager.getInstance(MyWatchFace.this).registerReceiver(receiver, intentFilter);
+            IntentFilter tempFilter = new IntentFilter(WeatherListenerService.ACTION_DATA);
+            LocalBroadcastManager.getInstance(MyWatchFace.this).registerReceiver(tempReceiver, tempFilter);
+            imageReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    loadBitmap();
+                }
+            };
+            loadBitmap();
+            IntentFilter imageFilter = new IntentFilter(WeatherListenerService.ACTION_IMAGE);
+            LocalBroadcastManager.getInstance(MyWatchFace.this).registerReceiver(imageReceiver, imageFilter);
             setWatchFaceStyle(new WatchFaceStyle.Builder(MyWatchFace.this)
                     .setCardPeekMode(WatchFaceStyle.PEEK_MODE_VARIABLE)
                     .setBackgroundVisibility(WatchFaceStyle.BACKGROUND_VISIBILITY_INTERRUPTIVE)
@@ -135,7 +187,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
                     .build());
             Resources resources = MyWatchFace.this.getResources();
             mYOffset = resources.getDimension(R.dimen.digital_y_offset);
-
+            loadTemp();
             mBackgroundPaint = new Paint();
 
             mHourPaint = new Paint();
@@ -153,6 +205,10 @@ public class MyWatchFace extends CanvasWatchFaceService {
         @Override
         public void onDestroy() {
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
+            if (imageReceiver != null)
+                LocalBroadcastManager.getInstance(MyWatchFace.this).unregisterReceiver(imageReceiver);
+            if (tempReceiver != null)
+                LocalBroadcastManager.getInstance(MyWatchFace.this).unregisterReceiver(tempReceiver);
             super.onDestroy();
         }
 
@@ -178,7 +234,7 @@ public class MyWatchFace extends CanvasWatchFaceService {
             Paint paint = new Paint();
             paint.setColor(textColor);
             //60% alpha.
-            paint.setAlpha(153);
+//            paint.setAlpha(153);
             paint.setTypeface(LIGHT_TYPEFACE);
             paint.setAntiAlias(true);
             return paint;
@@ -276,26 +332,30 @@ public class MyWatchFace extends CanvasWatchFaceService {
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
             long now = System.currentTimeMillis();
             mCalendar.setTimeInMillis(now);
-
+            String hour = String.format(Locale.getDefault(), "%02d:", mCalendar.get(Calendar.HOUR));
+            String minute = String.format(Locale.getDefault(), "%02d", mCalendar.get(Calendar.MINUTE));
+            String dateText = String.format(Locale.getDefault(), "%1$tA | %1$tb %1$td, %1$tY", mCalendar);
             // Draw the background.
             if (isInAmbientMode()) {
                 canvas.drawColor(Color.BLACK);
             } else {
                 canvas.drawColor(Color.parseColor(String.format(Locale.getDefault(), "#%02d%02d%02d", mCalendar.get(Calendar.HOUR), mCalendar.get(Calendar.MINUTE), mCalendar.get(Calendar.SECOND))));
             }
-
-            String hour = String.format(Locale.getDefault(), "%02d:", mCalendar.get(Calendar.HOUR));
-            canvas.drawText(hour, mXOffset, mYOffset, mHourPaint);
-            String minute = String.format(Locale.getDefault(), "%02d", mCalendar.get(Calendar.MINUTE));
-            canvas.drawText(minute, mXOffset + mHourPaint.measureText(hour), mYOffset, mMinutePaint);
-            String dateText = String.format(Locale.getDefault(), "%1$tA | %1$tb %1$td, %1$tY", mCalendar);
-            Rect rect = new Rect();
-            mHourPaint.getTextBounds(hour, 0, hour.length(), rect);
             float yoffset = rect.bottom + mYOffset;
             mDatePaint.getTextBounds(dateText, 0, dateText.length(), rect);
             Resources resources = MyWatchFace.this.getResources();
             yoffset += rect.height() + resources.getDimension(R.dimen.date_margin_top);
+            float x = canvas.getWidth() - bitmap.getWidth() - mXOffset;
+            mHourPaint.getTextBounds(hour, 0, hour.length(), rect);
+            float y = mYOffset - rect.height() / 2 - bitmap.getHeight() / 2 + 10;
+            if (isInAmbientMode() && ambientBitmap != null) {
+                canvas.drawBitmap(ambientBitmap, x, y, null);
+            } else if (bitmap != null)
+                canvas.drawBitmap(bitmap, x, y, null);
+            canvas.drawText(hour, mXOffset, mYOffset, mHourPaint);
+            canvas.drawText(minute, mXOffset + mHourPaint.measureText(hour), mYOffset, mMinutePaint);
             canvas.drawText(dateText, mXOffset, yoffset, mDatePaint);
+
         }
 
         /**
