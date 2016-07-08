@@ -21,9 +21,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.TypedArray;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -47,16 +49,22 @@ import android.view.ViewTreeObserver;
 import android.widget.AbsListView;
 import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.animation.GlideAnimation;
+import com.bumptech.glide.request.target.SimpleTarget;
 import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
+
+import java.io.ByteArrayOutputStream;
 
 /**
  * Encapsulates fetching the forecast and displaying it as a {@link android.support.v7.widget.RecyclerView} layout.
@@ -105,6 +113,12 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
     private boolean isDataSent = false;
 
     public ForecastFragment() {
+    }
+
+    private static Asset createAssetFromBitmap(Bitmap bitmap) {
+        final ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteStream);
+        return Asset.createFromBytes(byteStream.toByteArray());
     }
 
     @Override
@@ -390,8 +404,9 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
             Log.d(LOG_TAG, "onConnected: ");
             Cursor cursor = mForecastAdapter.getCursor();
             cursor.moveToPosition(0);
-            int max = (int) cursor.getDouble(ForecastFragment.COL_WEATHER_MAX_TEMP);
-            int min = (int) cursor.getDouble(ForecastFragment.COL_WEATHER_MIN_TEMP);
+            int max = (int) Math.round(cursor.getDouble(COL_WEATHER_MAX_TEMP));
+            int min = (int) Math.round(cursor.getDouble(COL_WEATHER_MIN_TEMP));
+            int weatherId = cursor.getInt(COL_WEATHER_CONDITION_ID);
             PutDataMapRequest putDataMapReq = PutDataMapRequest.create("/weather");
             Log.d(LOG_TAG, "onConnected: MIN: " + min);
             Log.d(LOG_TAG, "onConnected: MAX: " + max);
@@ -410,8 +425,29 @@ public class ForecastFragment extends Fragment implements LoaderManager.LoaderCa
                     }
                 }
             });
+            Glide.with(getContext()).load(Utility.getArtUrlForWeatherCondition(getContext(), weatherId)).asBitmap().into(new SimpleTarget<Bitmap>() {
+                @Override
+                public void onResourceReady(Bitmap resource, GlideAnimation<? super Bitmap> glideAnimation) {
+                    sendWeatherAssetToWearable(resource);
+                }
+            });
         }
+    }
 
+    private void sendWeatherAssetToWearable(Bitmap bitmap) {
+        Asset asset = createAssetFromBitmap(bitmap);
+        PutDataMapRequest dataMap = PutDataMapRequest.create("/image");
+        dataMap.getDataMap().putAsset("weatherImage", asset);
+        dataMap.getDataMap().putLong("time", SystemClock.currentThreadTimeMillis());
+        PutDataRequest request = dataMap.asPutDataRequest();
+        PendingResult<DataApi.DataItemResult> pendingResult = Wearable.DataApi
+                .putDataItem(mGoogleApiClient, request);
+        pendingResult.setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
+            @Override
+            public void onResult(@NonNull DataApi.DataItemResult dataItemResult) {
+
+            }
+        });
     }
 
     @Override
